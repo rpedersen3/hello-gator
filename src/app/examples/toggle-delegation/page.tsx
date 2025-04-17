@@ -3,11 +3,11 @@
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { createPublicClient, getContract, http, toHex } from "viem";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
-import { sepolia as chain } from "viem/chains";
+import { optimism } from "viem/chains";
 import {
   Implementation,
   toMetaMaskSmartAccount,
-  createRootDelegation,
+  createDelegation,
   type MetaMaskSmartAccount,
   type DelegationStruct,
   getExplorerAddressLink,
@@ -16,7 +16,7 @@ import {
   getDelegationHashOffchain,
   Call,
   DelegationFramework,
-} from "@metamask-private/delegator-core-viem";
+} from "@metamask/delegation-toolkit";
 import {
   createBundlerClient,
   createPaymasterClient,
@@ -36,7 +36,7 @@ const createCounterfactualDelegatorAccount = async () => {
   const owner = privateKeyToAccount(privateKey);
 
   const client = createPublicClient({
-    chain,
+    chain: optimism,
     transport: http(RPC_URL),
   });
 
@@ -67,7 +67,7 @@ function DeleGatorAccount({
     return "NA";
   }
 
-  const explorerUrl = getExplorerAddressLink(chain.id, account.address);
+  const explorerUrl = getExplorerAddressLink(optimism.id, account.address);
 
   return (
     <>
@@ -96,15 +96,11 @@ function App() {
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const client = createPublicClient({
-    chain,
+    chain: optimism,
     transport: http(RPC_URL),
   });
 
-  const paymasterContext = PAYMASTER_POLICY_ID
-    ? {
-        sponsorshipPolicyId: PAYMASTER_POLICY_ID,
-      }
-    : undefined;
+
 
   const pimlicoClient = createPimlicoClient({
     transport: http(BUNDLER_URL),
@@ -115,8 +111,13 @@ function App() {
     paymaster: createPaymasterClient({
       transport: http(BUNDLER_URL),
     }),
-    chain,
-    paymasterContext,
+    chain: optimism,
+    paymasterContext: {
+      // at minimum this must be an object; for Biconomy you can use:
+      mode:             'SPONSORED',
+      calculateGasLimits: true,
+      expiryDuration:  300,
+    },
   });
 
   const canCreateDelegation = !!(delegateAccount && delegatorAccount);
@@ -163,7 +164,7 @@ function App() {
           });
 
         const explorerUrl = getExplorerTransactionLink(
-          chain.id,
+          optimism.id,
           userOperationReceipt.receipt.transactionHash
         );
 
@@ -180,11 +181,12 @@ function App() {
   };
 
   const handleDisableDelegation = async () => {
+    console.info("delegation: ", delegation)
     await handleDelegationAction(
       () => [
         {
           to: delegatorAccount!.address,
-          data: DelegationFramework.encode.disableDelegation(delegation!),
+          data: DelegationFramework.encode.disableDelegation({delegation}),
         },
       ],
       setUserOpExplorerUrlDisable
@@ -196,7 +198,7 @@ function App() {
       () => [
         {
           to: delegatorAccount!.address,
-          data: DelegationFramework.encode.enableDelegation(delegation!),
+          data: DelegationFramework.encode.enableDelegation({ delegation }),
         },
       ],
 
@@ -209,11 +211,11 @@ function App() {
       return;
     }
 
-    const newDelegation = createRootDelegation(
-      delegateAccount!.address,
-      delegatorAccount!.address,
-      []
-    );
+    const newDelegation = createDelegation({
+      to: delegateAccount!.address,
+      from: delegatorAccount!.address,
+      caveats: []
+    });
 
     setDelegation(newDelegation);
     await handleCheckDelegationStatusFromInput(newDelegation);

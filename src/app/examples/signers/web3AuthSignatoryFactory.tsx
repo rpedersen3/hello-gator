@@ -22,6 +22,7 @@ export const createWeb3AuthSignatoryFactory: SignatoryFactoryConfigurator = (
     config: { chainConfig },
   });
 
+  console.info("config.web3AuthClientId: ", config.web3AuthClientId)
   const web3auth = new Web3Auth({
     clientId: config.web3AuthClientId,
     web3AuthNetwork: config.web3AuthNetwork,

@@ -10,24 +10,26 @@ import {
   zeroAddress,
 } from "viem";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
-import { sepolia as chain } from "viem/chains";
+import { optimism } from "viem/chains";
 import {
   Implementation,
   toMetaMaskSmartAccount,
   type MetaMaskSmartAccount,
   type DelegationStruct,
-  createRootDelegation,
+  createDelegation,
   DelegationFramework,
   SINGLE_DEFAULT_MODE,
   getExplorerTransactionLink,
   getExplorerAddressLink,
   createExecution,
-} from "@metamask-private/delegator-core-viem";
+} from "@metamask/delegation-toolkit";
 import {
   createBundlerClient,
   createPaymasterClient,
   UserOperationReceipt,
 } from "viem/account-abstraction";
+
+
 import { createPimlicoClient } from "permissionless/clients/pimlico";
 import { randomBytes } from "crypto";
 import {
@@ -78,7 +80,7 @@ function DeleGatorAccount({
     return "NA";
   }
 
-  const explorerUrl = getExplorerAddressLink(chain.id, account.address);
+  const explorerUrl = getExplorerAddressLink(optimism.id, account.address);
 
   return (
     <>
@@ -105,33 +107,37 @@ function App() {
 
   const { selectedSignatory, setSelectedSignatoryName, selectedSignatoryName } =
     useSelectedSignatory({
-      chain,
+      chain: optimism,
       web3AuthClientId: WEB3_AUTH_CLIENT_ID,
       web3AuthNetwork: WEB3_AUTH_NETWORK,
       rpcUrl: RPC_URL,
     });
 
   const client = createPublicClient({
-    chain,
+    chain: optimism,
     transport: http(RPC_URL),
   });
-  const paymasterContext = PAYMASTER_POLICY_ID
-    ? {
-        sponsorshipPolicyId: PAYMASTER_POLICY_ID,
-      }
-    : undefined;
+
+
 
   const pimlicoClient = createPimlicoClient({
     transport: http(BUNDLER_URL),
   });
+
+
 
   const bundlerClient = createBundlerClient({
     transport: http(BUNDLER_URL),
     paymaster: createPaymasterClient({
       transport: http(BUNDLER_URL),
     }),
-    chain,
-    paymasterContext,
+    chain: optimism,
+    paymasterContext: {
+      // at minimum this must be an object; for Biconomy you can use:
+      mode:             'SPONSORED',
+      calculateGasLimits: true,
+      expiryDuration:  300,
+    },
   });
 
   const isValidSignatorySelected =
@@ -205,12 +211,8 @@ function App() {
 
     const userOpHash = await bundlerClient.sendUserOperation({
       account: delegatorAccount,
-      calls: [
-        {
-          to: zeroAddress,
-        },
-      ],
-      ...fee,
+      calls: [{ to: zeroAddress, data: "0x" }],
+      ...fee
     });
 
     bundlerClient.waitForUserOperationReceipt({
@@ -225,11 +227,14 @@ function App() {
       return;
     }
 
-    const newDelegation = createRootDelegation(
-      delegateAccount.address,
-      delegatorAccount.address,
-      []
+    console.info("create delegation: ", delegateAccount.address, delegatorAccount.address)
+    const newDelegation = createDelegation({
+      to: delegateAccount.address,
+      from: delegatorAccount.address,
+      caveats: [] }
     );
+
+    console.info("new delegation: ", newDelegation)
 
     setDelegation(newDelegation);
   };
@@ -258,11 +263,11 @@ function App() {
 
     const execution = createExecution();
 
-    const data = DelegationFramework.encode.redeemDelegations(
-      [[delegation]],
-      [SINGLE_DEFAULT_MODE],
-      [[execution]]
-    );
+    const data = DelegationFramework.encode.redeemDelegations({
+      delegations: [[delegation]],
+      modes: [SINGLE_DEFAULT_MODE],
+      executions: [[execution]]
+    });
 
     if (delegateDeploymentStatus === "counterfactual") {
       setDelegateDeploymentStatus("deployment in progress");
@@ -303,7 +308,7 @@ function App() {
 
   const userOpExplorerUrl =
     userOpReceipt &&
-    getExplorerTransactionLink(chain.id, userOpReceipt.receipt.transactionHash);
+    getExplorerTransactionLink(optimism.id, userOpReceipt.receipt.transactionHash);
 
   return (
     <div>

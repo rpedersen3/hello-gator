@@ -3,7 +3,7 @@
 import Hero from "@/components/Hero";
 import {
   createMetaMaskAccount,
-  createDelegation,
+  createMyDelegation,
   executeOnBehalfOfDelegator,
 } from "./quickstart";
 import examples from "@/app/examples";
@@ -14,9 +14,10 @@ import {
   MetaMaskSmartAccount,
   getExplorerAddressLink,
   getExplorerTransactionLink,
-} from "@metamask-private/delegator-core-viem";
-import { chain, getExplorerUserOperationLink } from "./examples/shared";
+} from "@metamask/delegation-toolkit";
+import { getExplorerUserOperationLink } from "./examples/shared";
 import { UserOperationReceipt } from "viem/account-abstraction";
+import { optimism } from "viem/chains";
 
 function App() {
   const [executeOnBehalfIsLoading, setExecuteOnBehalfIsLoading] =
@@ -62,7 +63,7 @@ function App() {
     setUserOperationReceipt(undefined);
 
     try {
-      const delegation = await createDelegation(
+      const delegation = await createMyDelegation(
         delegatorAccount,
         delegateAccount.address
       );
@@ -154,7 +155,7 @@ function App() {
             <div>
               <a
                 href={getExplorerAddressLink(
-                  chain.id,
+                  optimism.id,
                   delegatorAccount.address
                 )}
                 target="_blank"
@@ -186,7 +187,7 @@ function App() {
           {delegateAccount && (
             <div>
               <a
-                href={getExplorerAddressLink(chain.id, delegateAccount.address)}
+                href={getExplorerAddressLink(optimism.id, delegateAccount.address)}
                 target="_blank"
                 className="text-green-500 font-mono"
               >
@@ -259,7 +260,7 @@ function App() {
               User operation hash:{" "}
               <a
                 href={getExplorerUserOperationLink(
-                  chain.id,
+                  optimism.id,
                   userOperationReceipt.userOpHash
                 )}
                 className="text-green-500 font-mono"
@@ -271,7 +272,7 @@ function App() {
               Transaction hash:{" "}
               <a
                 href={getExplorerTransactionLink(
-                  chain.id,
+                  optimism.id,
                   userOperationReceipt.receipt.transactionHash
                 )}
                 className="text-green-500 font-mono"
